@@ -58,6 +58,3 @@ public/
   icons/        Extension icons (16, 32, 48, 128px)
 ```
 
-## CORS
-
-The extension makes requests from a `chrome-extension://` origin. Ensure your TLSentinel instance allows this origin, or configure a reverse proxy to pass the appropriate `Access-Control-Allow-Origin` header.

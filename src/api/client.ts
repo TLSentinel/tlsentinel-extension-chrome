@@ -19,13 +19,24 @@ export interface EndpointList {
 }
 
 export interface CertItem {
-  endpointId: string
-  endpointName: string
-  endpointType: string
   fingerprint: string
   commonName: string
   notAfter: string
   daysRemaining: number
+}
+
+export interface EndpointDetail {
+  id: string
+  name: string
+  dnsName: string
+  port: number
+  type: string
+  activeCerts: Array<{
+    fingerprint: string
+    isCurrent: boolean
+    commonName: string
+    notAfter: string
+  }>
 }
 
 export interface CreateEndpointRequest {
@@ -65,10 +76,14 @@ export async function findEndpointByHost(hostname: string): Promise<EndpointItem
   return exact ?? null
 }
 
-// Get the active cert for a specific endpoint.
+// Get full endpoint detail including activeCerts, then return the current cert.
 export async function getActiveCert(endpointId: string): Promise<CertItem | null> {
-  const data = await apiFetch<{ items: CertItem[] }>(`/certificates/active?endpoint_id=${endpointId}&page_size=1`)
-  return data.items[0] ?? null
+  const detail = await apiFetch<EndpointDetail>(`/endpoints/${endpointId}`)
+  const cert = detail.activeCerts.find(c => c.isCurrent) ?? detail.activeCerts[0] ?? null
+  if (!cert) return null
+  const msPerDay = 1000 * 60 * 60 * 24
+  const daysRemaining = Math.ceil((new Date(cert.notAfter).getTime() - Date.now()) / msPerDay)
+  return { fingerprint: cert.fingerprint, commonName: cert.commonName, notAfter: cert.notAfter, daysRemaining }
 }
 
 // Create a new endpoint for a hostname.

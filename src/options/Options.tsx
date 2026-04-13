@@ -62,7 +62,7 @@ export default function Options() {
 
       {/* ── Content ────────────────────────────────────────────────── */}
       <div className="flex-1 flex items-start justify-center px-6 py-10">
-        <div className="w-full max-w-md space-y-5">
+        <div className="w-full max-w-md space-y-5 relative">
 
           {/* Page title */}
           <div>
@@ -153,6 +153,7 @@ export default function Options() {
               {saveState === 'error' && (
                 <span className="ml-auto text-sm text-red-600 font-medium">Failed to save.</span>
               )}
+
             </div>
           </form>
 

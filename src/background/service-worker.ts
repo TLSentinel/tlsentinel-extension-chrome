@@ -5,23 +5,24 @@ import { setBadge, clearBadge, stateFromDays } from '@/lib/badge'
 import { lookupDomain } from '@/api/client'
 import { getSettings } from '@/lib/storage'
 
-function hostnameFromUrl(url: string | undefined): string | null {
+function parseHttpsUrl(url: string | undefined): { hostname: string; port: number } | null {
   if (!url) return null
   try {
     const u = new URL(url)
-    return u.protocol === 'https:' ? u.hostname : null
+    if (u.protocol !== 'https:') return null
+    return { hostname: u.hostname, port: u.port ? parseInt(u.port, 10) : 443 }
   } catch { return null }
 }
 
 async function updateBadge(tabId: number, url: string | undefined) {
-  const hostname = hostnameFromUrl(url)
-  if (!hostname) { await clearBadge(tabId); return }
+  const parsed = parseHttpsUrl(url)
+  if (!parsed) { await clearBadge(tabId); return }
 
   const settings = await getSettings()
   if (!settings) { await clearBadge(tabId); return }
 
   try {
-    const result = await lookupDomain(hostname)
+    const result = await lookupDomain(parsed.hostname, parsed.port)
     await setBadge(tabId, stateFromDays(result.daysRemaining), result.daysRemaining)
   } catch {
     await clearBadge(tabId)

@@ -48,6 +48,7 @@ const DOT: Record<Color, string> = {
 
 export default function Popup() {
   const [hostname, setHostname] = useState<string | null>(null)
+  const [port, setPort]         = useState(443)
   const [isHttps, setIsHttps]   = useState(true)
 
   const [configured, setConfigured] = useState(false)
@@ -64,20 +65,23 @@ export default function Popup() {
     if (!tab?.url) { setLoading(false); return }
 
     let host: string | null = null
+    let p = 443
     try {
       const u = new URL(tab.url)
       if (u.protocol !== 'https:') { setIsHttps(false); setLoading(false); return }
       host = u.hostname
+      p = u.port ? parseInt(u.port, 10) : 443
     } catch { setIsHttps(false); setLoading(false); return }
 
     setHostname(host)
+    setPort(p)
 
     const settings = await getSettings()
     if (settings) {
       setConfigured(true)
       setBaseUrl(settings.baseUrl)
       try {
-        const result = await lookupDomain(host)
+        const result = await lookupDomain(host, p)
         setLookup(result)
       } catch { /* leave lookup null */ }
     }
@@ -89,7 +93,7 @@ export default function Popup() {
     if (!hostname) return
     setAdding(true)
     try {
-      const ep = await createEndpoint(hostname)
+      const ep = await createEndpoint(hostname, port)
       setLookup(prev => prev ? { ...prev, monitored: true, endpointId: ep.id } : prev)
       setAdded(true)
     } finally { setAdding(false) }
@@ -140,9 +144,10 @@ export default function Popup() {
         {isHttps && !loading && hostname && (
           <>
             {/* Hostname pill */}
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200">
-              <LockIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-              <span className="truncate text-sm font-medium text-slate-700">{hostname}</span>
+            <div className="flex items-center rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200">
+              <span className="truncate text-sm font-medium text-slate-700">
+                {hostname}{port !== 443 && <span className="text-slate-400">:{port}</span>}
+              </span>
             </div>
 
             {/* Cert card — shown whenever we have lookup data */}
@@ -155,10 +160,11 @@ export default function Popup() {
                     {daysLabel(lookup.daysRemaining)}
                   </span>
                 </div>
-                <div className="divide-y divide-slate-100 px-3">
-                  <CertRow label="Common name" value={lookup.commonName} />
-                  <CertRow label="Issuer"      value={lookup.issuer} />
-                  <CertRow label="Expires"     value={fmtDate(lookup.notAfter)} />
+                <div className="px-3 py-2 space-y-1.5">
+                  <CertRow label="Common name"  value={lookup.commonName} />
+                  <CertRow label="Issuer"       value={lookup.issuer} />
+                  <CertRow label="Expires"      value={fmtDate(lookup.notAfter)} />
+                  <CertRow label="SHA-256"      value={lookup.fingerprint} wrap />
                 </div>
               </div>
             )}
@@ -231,11 +237,11 @@ export default function Popup() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function CertRow({ label, value }: { label: string; value: string }) {
+function CertRow({ label, value, wrap }: { label: string; value: string; wrap?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-2">
+    <div className={`flex gap-3 ${wrap ? 'flex-col' : 'items-center justify-between'}`}>
       <span className="shrink-0 text-xs text-slate-400">{label}</span>
-      <span className="truncate text-right text-xs font-medium text-slate-700" title={value}>{value}</span>
+      <span className={`text-xs font-medium text-slate-700 font-mono ${wrap ? 'break-all' : 'truncate text-right'}`} title={value}>{value}</span>
     </div>
   )
 }
@@ -249,13 +255,6 @@ function GearIcon() {
   )
 }
 
-function LockIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-    </svg>
-  )
-}
 
 function LockOpenIcon({ className }: { className?: string }) {
   return (

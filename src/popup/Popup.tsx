@@ -28,18 +28,11 @@ function colorFromDays(days: number): Color {
   return 'green'
 }
 
-const BADGE: Record<Color, string> = {
-  green: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  amber: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  red:   'bg-red-50 text-red-700 ring-1 ring-red-200',
-  gray:  'bg-gray-100 text-gray-500 ring-1 ring-gray-200',
-}
-
-const DOT: Record<Color, string> = {
-  green: 'bg-emerald-500',
-  amber: 'bg-amber-500',
-  red:   'bg-red-500',
-  gray:  'bg-gray-400',
+const TEXT_COLOR: Record<Color, string> = {
+  green: 'text-emerald-600',
+  amber: 'text-amber-500',
+  red:   'text-red-500',
+  gray:  'text-slate-400',
 }
 
 // ---------------------------------------------------------------------------
@@ -155,8 +148,8 @@ export default function Popup() {
               <div className="rounded-lg ring-1 ring-slate-200 overflow-hidden">
                 <div className="flex items-center justify-between bg-slate-50 px-3 py-2 border-b border-slate-200">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Certificate</span>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${BADGE[color]}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${DOT[color]}`} />
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${TEXT_COLOR[color]}`}>
+                    {(color === 'amber' || color === 'red') && <WarningIcon expired={lookup.daysRemaining < 0} />}
                     {daysLabel(lookup.daysRemaining)}
                   </span>
                 </div>
@@ -243,6 +236,21 @@ function CertRow({ label, value, wrap }: { label: string; value: string; wrap?: 
       <span className="shrink-0 text-xs text-slate-400">{label}</span>
       <span className={`text-xs font-medium text-slate-700 font-mono ${wrap ? 'break-all' : 'truncate text-right'}`} title={value}>{value}</span>
     </div>
+  )
+}
+
+function WarningIcon({ expired }: { expired: boolean }) {
+  if (expired) {
+    return (
+      <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+    </svg>
   )
 }
 

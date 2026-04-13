@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSettings, saveSettings } from '@/lib/storage'
-import { findEndpointByHost } from '@/api/client'
+import { testConnection } from '@/api/client'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type TestState = 'idle' | 'testing' | 'ok' | 'error'
@@ -39,7 +39,7 @@ export default function Options() {
     setTestMsg('')
     try {
       await saveSettings({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() })
-      await findEndpointByHost('__connection_test__')
+      await testConnection()
       setTestState('ok')
       setTestMsg('Connected successfully.')
     } catch (err: unknown) {

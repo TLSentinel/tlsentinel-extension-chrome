@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { findEndpointByHost, getActiveCert, createEndpoint } from '@/api/client'
-import type { EndpointItem, CertItem } from '@/api/client'
+import { lookupDomain, createEndpoint } from '@/api/client'
+import type { LookupResult } from '@/api/client'
 import { getSettings } from '@/lib/storage'
 
 // ---------------------------------------------------------------------------
@@ -53,9 +53,7 @@ export default function Popup() {
   const [configured, setConfigured] = useState(false)
   const [baseUrl, setBaseUrl]       = useState('')
   const [loading, setLoading]       = useState(true)
-  const [endpoint, setEndpoint]     = useState<EndpointItem | null>(null)
-  const [cert, setCert]             = useState<CertItem | null>(null)
-  const [monitoring, setMonitoring] = useState<'unknown' | 'monitored' | 'unmonitored'>('unknown')
+  const [lookup, setLookup]         = useState<LookupResult | null>(null)
   const [adding, setAdding]         = useState(false)
   const [added, setAdded]           = useState(false)
 
@@ -79,16 +77,9 @@ export default function Popup() {
       setConfigured(true)
       setBaseUrl(settings.baseUrl)
       try {
-        const ep = await findEndpointByHost(host)
-        setEndpoint(ep)
-        setMonitoring(ep ? 'monitored' : 'unmonitored')
-        if (ep) {
-          const c = await getActiveCert(ep.id)
-          setCert(c)
-        }
-      } catch { setMonitoring('unmonitored') }
-    } else {
-      setMonitoring('unmonitored')
+        const result = await lookupDomain(host)
+        setLookup(result)
+      } catch { /* leave lookup null */ }
     }
 
     setLoading(false)
@@ -99,8 +90,7 @@ export default function Popup() {
     setAdding(true)
     try {
       const ep = await createEndpoint(hostname)
-      setEndpoint(ep)
-      setMonitoring('monitored')
+      setLookup(prev => prev ? { ...prev, monitored: true, endpointId: ep.id } : prev)
       setAdded(true)
     } finally { setAdding(false) }
   }
@@ -108,7 +98,7 @@ export default function Popup() {
   function openOptions() { chrome.runtime.openOptionsPage() }
   function openTLSentinel(path = '') { chrome.tabs.create({ url: baseUrl + path }) }
 
-  const color = cert ? colorFromDays(cert.daysRemaining) : 'gray'
+  const color = lookup ? colorFromDays(lookup.daysRemaining) : 'gray'
 
   return (
     <div className="w-80 flex flex-col bg-white text-gray-900" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -155,29 +145,21 @@ export default function Popup() {
               <span className="truncate text-sm font-medium text-slate-700">{hostname}</span>
             </div>
 
-            {/* Cert card */}
-            {monitoring === 'monitored' && (
+            {/* Cert card — shown whenever we have lookup data */}
+            {lookup && (
               <div className="rounded-lg ring-1 ring-slate-200 overflow-hidden">
-                {/* Card header */}
                 <div className="flex items-center justify-between bg-slate-50 px-3 py-2 border-b border-slate-200">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Certificate</span>
-                  {cert && (
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${BADGE[color]}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${DOT[color]}`} />
-                      {daysLabel(cert.daysRemaining)}
-                    </span>
-                  )}
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${BADGE[color]}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${DOT[color]}`} />
+                    {daysLabel(lookup.daysRemaining)}
+                  </span>
                 </div>
-
-                {/* Card rows */}
-                {cert ? (
-                  <div className="divide-y divide-slate-100 px-3">
-                    <CertRow label="Common name" value={cert.commonName} />
-                    <CertRow label="Expires"     value={fmtDate(cert.notAfter)} />
-                  </div>
-                ) : (
-                  <p className="px-3 py-3 text-xs text-slate-400">No active certificate on record yet.</p>
-                )}
+                <div className="divide-y divide-slate-100 px-3">
+                  <CertRow label="Common name" value={lookup.commonName} />
+                  <CertRow label="Issuer"      value={lookup.issuer} />
+                  <CertRow label="Expires"     value={fmtDate(lookup.notAfter)} />
+                </div>
               </div>
             )}
 
@@ -194,35 +176,34 @@ export default function Popup() {
                       <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />
                       Not connected
                     </div>
-                    <button
-                      onClick={openOptions}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-                    >
+                    <button onClick={openOptions} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
                       Set up →
                     </button>
                   </div>
                 )}
 
-                {configured && monitoring === 'unknown' && (
-                  <p className="text-xs text-slate-400">Checking…</p>
+                {configured && !lookup && (
+                  <p className="text-xs text-slate-400">Could not reach TLSentinel.</p>
                 )}
 
-                {configured && monitoring === 'monitored' && endpoint && (
+                {configured && lookup && lookup.monitored && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
                       <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
                       {added ? 'Added to monitoring' : 'Monitored'}
                     </div>
-                    <button
-                      onClick={() => openTLSentinel(`/endpoints/${endpoint.id}`)}
-                      className="w-full rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700"
-                    >
-                      Open in TLSentinel →
-                    </button>
+                    {lookup.endpointId && (
+                      <button
+                        onClick={() => openTLSentinel(`/endpoints/${lookup.endpointId}`)}
+                        className="w-full rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700"
+                      >
+                        Open in TLSentinel →
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {configured && monitoring === 'unmonitored' && (
+                {configured && lookup && !lookup.monitored && (
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2 text-sm text-slate-500">
                       <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" />

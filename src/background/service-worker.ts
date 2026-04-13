@@ -2,7 +2,7 @@
 // Badge color/text is updated whenever the active tab changes or a navigation completes.
 
 import { setBadge, clearBadge, stateFromDays } from '@/lib/badge'
-import { findEndpointByHost, getActiveCert } from '@/api/client'
+import { lookupDomain } from '@/api/client'
 import { getSettings } from '@/lib/storage'
 
 function hostnameFromUrl(url: string | undefined): string | null {
@@ -21,13 +21,8 @@ async function updateBadge(tabId: number, url: string | undefined) {
   if (!settings) { await clearBadge(tabId); return }
 
   try {
-    const endpoint = await findEndpointByHost(hostname)
-    if (!endpoint) { await setBadge(tabId, 'unmonitored'); return }
-
-    const cert = await getActiveCert(endpoint.id)
-    if (!cert) { await setBadge(tabId, 'unmonitored'); return }
-
-    await setBadge(tabId, stateFromDays(cert.daysRemaining), cert.daysRemaining)
+    const result = await lookupDomain(hostname)
+    await setBadge(tabId, stateFromDays(result.daysRemaining), result.daysRemaining)
   } catch {
     await clearBadge(tabId)
   }

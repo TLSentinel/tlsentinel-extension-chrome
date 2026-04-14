@@ -3,7 +3,7 @@
   "name": "TLSentinel",
   "version": "1.0.0",
   "description": "Quick TLS certificate info and monitoring via TLSentinel.",
-  "permissions": ["activeTab", "tabs", "storage", "alarms"],
+  "permissions": ["tabs", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",

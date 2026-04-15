@@ -50,6 +50,7 @@ export default function Popup() {
   const [lookup, setLookup]         = useState<LookupResult | null>(null)
   const [adding, setAdding]         = useState(false)
   const [added, setAdded]           = useState(false)
+  const [addError, setAddError]     = useState<string | null>(null)
 
   useEffect(() => { init() }, [])
 
@@ -85,11 +86,21 @@ export default function Popup() {
   async function handleAdd() {
     if (!hostname) return
     setAdding(true)
+    setAddError(null)
     try {
       const ep = await createEndpoint(hostname, port)
       setLookup(prev => prev ? { ...prev, monitored: true, endpointId: ep.id } : prev)
       setAdded(true)
-    } finally { setAdding(false) }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.startsWith('403')) {
+        setAddError('You do not have permission to add endpoints.')
+      } else {
+        setAddError('Failed to add endpoint. Please try again.')
+      }
+    } finally {
+      setAdding(false)
+    }
   }
 
   function openOptions() { chrome.runtime.openOptionsPage() }
@@ -215,6 +226,9 @@ export default function Popup() {
                     >
                       {adding ? 'Adding…' : '+ Add to Monitoring'}
                     </button>
+                    {addError && (
+                      <p className="text-xs text-red-500">{addError}</p>
+                    )}
                   </div>
                 )}
               </div>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TLSentinel",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Quick TLS certificate info and monitoring via TLSentinel.",
   "permissions": ["tabs", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
